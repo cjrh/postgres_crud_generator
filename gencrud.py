@@ -6,7 +6,7 @@ Code generator to make CRUD classes for an existing Postgres DB.
 
 """
 import asyncio
-from collections import defaultdict, OrderedDict, Sequence
+from collections import OrderedDict
 from typing import NamedTuple, List, Dict, Iterable
 from textwrap import indent
 
