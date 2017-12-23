@@ -363,7 +363,7 @@ async def generate(conn: Connection, args):
         generated_classes.append(out)
         print()
 
-    with open('gendb_out.py', 'w') as f:
+    with open(args.outfile, 'w') as f:
         f.write('\n\n'.join(generated_classes))
 
 
@@ -389,7 +389,7 @@ async def generate(conn: Connection, args):
 
 async def main(args):
     # dsn = 'postgresql://slayer2:slayer2@localhost:41329/slayer2'
-    dsn = f'postgresql://{args.user}:{args.pass}@{args.host}:{args.port}/{args.db}'
+    dsn = f'postgresql://{args.user}:{args.password}@{args.host}:{args.port}/{args.db}'
     conn: Connection = await asyncpg.connect(dsn)
     try:
         await generate(conn, args)
@@ -421,15 +421,8 @@ async def get_primary_keys(conn: Connection) -> Dict[str, str]:
 
     records = await conn.fetch(sql)
     out = {}
-    print()
-    print('PKEY')
-    print()
     for r in records:
         out[r['table_name']] = r['column_name']
-        print()
-        print(r)
-        print()
-
     return out
 
 
@@ -437,9 +430,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--db', type=str)
     parser.add_argument('--user', type=str, default='postgres')
-    parser.add_argument('--pass', type=str, default='postgres')
+    parser.add_argument('--password', type=str, default='postgres')
     parser.add_argument('--port', type=int, default=5432)
     parser.add_argument('--host', type=str, default='localhost')
+
+    parser.add_argument('-o', '--outfile', default='generated.py')
     args = parser.parse_args()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main(args))
