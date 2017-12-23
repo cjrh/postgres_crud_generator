@@ -38,6 +38,9 @@ import uuid
 import datetime
 from decimal import Decimal
 import ipaddress
+import json
+from typing import List
+from pprint import pformat
 import asyncpg
 from asyncpg.pool import Pool
 
@@ -47,6 +50,28 @@ pool: Pool = None
 
 class UNCHANGED:
     pass
+    
+    
+class CRUDTable:
+    def __repr__(self):
+        return str(self)
+        
+    def __str__(self):
+        return self.json(pretty=True)
+        
+    def json(self, pretty=None) -> str:
+        return json.dumps(
+            self.__dict__,
+            default=str,
+            indent=pretty and 4
+        )
+        
+    @classmethod
+    def from_json(cls, text: str):
+        # TODO: this doesn't really work. Need to be able to deserialise
+        # TODO: arbitrary types back from str.
+        return cls(**json.loads(text))
+    
 '''
 
 
@@ -145,7 +170,7 @@ postgres_to_python_text = {
 TABLE_TEMPLATE = Template('''\
 #
 # noinspection PyShadowingBuiltins,PyPep8Naming
-class ${table_name}:
+class ${table_name}(CRUDTable):
     def __init__(self, *, $init_params):
         """ This initializer is mainly for static type engines. Use one
         of the classmethods to create instances (with DB interaction) """
@@ -155,7 +180,9 @@ $init_assignments
     async def create(cls, *, $create_params) -> '${table_name}':
         async with pool.acquire() as conn:
             r = await conn.fetchrow("""\\
-                INSERT INTO slayer2.${table_name} VALUES (
+                INSERT INTO slayer2.${table_name} 
+                    ($calc_fields)
+                VALUES (
                     $field_nums
                 ) RETURNING *
             """, $calc_fields)
@@ -172,6 +199,17 @@ $init_assignments
 
             return cls(**records[0])
 
+    @classmethod
+    async def read_many(cls, where_clause: str, params: List) -> 'List[${table_name}]':
+        async with pool.acquire() as conn:
+            records = await conn.fetch(f"""\\
+                SELECT * FROM slayer2.${table_name}
+                WHERE
+                    {where_clause}
+            """, *params)
+
+            return [cls(**r) for r in records]
+            
     async def update(self, *, $update_params):
         sql_fields = []
         sql_values = []
@@ -205,12 +243,14 @@ $init_assignments
 
     async def delete(self):
         async with pool.acquire() as conn:
+            deleted_at = datetime.datetime.utcnow()
             await conn.execute(f"""\\
                 UPDATE slayer2.${table_name}
                 SET deleted_at = $2
                 WHERE
                     ${pk} = $1
-            """, self.$pk, datetime.datetime.now(tz=datetime.timezone.utc))
+            """, self.$pk, deleted_at) 
+        self.deleted_at = deleted_at
 
     async def delete_hard(self):
         async with pool.acquire() as conn:
