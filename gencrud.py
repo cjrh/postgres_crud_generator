@@ -241,6 +241,31 @@ $init_assignments
         for f, v in zip(changed_fieldnames, changed_fieldvalues):
             setattr(self, f, v)
 
+    @classmethod
+    async def update_many(cls, *, where_clause: str, where_params: List, $update_params):
+        """ With parameters in the `where_clause`, start numbering at $1. """
+        sql_fields = []
+        sql_values = []
+        fieldnames = [$update_fieldnames]
+        fieldvalues = [$update_fieldvalues]
+        count = 1 + len(where_params)
+        for f, v in zip(fieldnames, fieldvalues):
+            if v is UNCHANGED:
+                continue
+
+            sql_fields.append(f'{f} = ${count}')
+            sql_values.append(v)
+            count += 1
+
+        async with pool.acquire() as conn:
+            await conn.execute(f"""\\
+                UPDATE ${table_name}
+                SET
+                    {', '.join(sql_fields)}
+                WHERE
+                    {where_clause}
+            """, *where_params, *sql_values)
+            
     async def delete(self):
         async with pool.acquire() as conn:
             deleted_at = datetime.datetime.utcnow()
