@@ -12,6 +12,8 @@ class Database:
     def __init__(self, name, owner=False, host='localhost',
                  port=5432, user='postgres', password='postgres',
                  **kwargs):
+        """If ``owner`` is True, then ``connect()`` will also first
+        create the database, and ``disconnect`` will also drop it."""
         self.params = dict(
             user=user,
             password=password,
@@ -19,8 +21,6 @@ class Database:
             port=port,
             name=name
         )
-        """If ``owner`` is True, then ``connect()`` will also first
-        create the database, and ``disconnect`` will also drop it."""
         self.params.update(kwargs)
         self.pool: Pool = None
         self.owner = owner

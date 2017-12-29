@@ -11,7 +11,11 @@ from typing import NamedTuple, List, Dict, Iterable
 from textwrap import indent
 
 from asyncpg.connection import Connection
-import argparse
+from argparse import (
+    RawDescriptionHelpFormatter,
+    ArgumentDefaultsHelpFormatter,
+    ArgumentParser
+)
 from string import Template
 from pprint import pprint
 import datetime
@@ -491,15 +495,39 @@ async def get_primary_keys(conn: Connection) -> Dict[str, str]:
     return out
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--db', type=str)
-    parser.add_argument('--user', type=str, default='postgres')
-    parser.add_argument('--password', type=str, default='postgres')
-    parser.add_argument('--port', type=int, default=5432)
-    parser.add_argument('--host', type=str, default='localhost')
+def entrypoint():
+    class Formatter(RawDescriptionHelpFormatter, ArgumentDefaultsHelpFormatter):
+        pass
 
-    parser.add_argument('-o', '--outfile', default='generated.py')
+    parser = ArgumentParser(
+        description=__doc__,
+        formatter_class=Formatter
+    )
+    parser.add_argument(
+        '--db', type=str, help='Database name')
+    parser.add_argument(
+        '--user', type=str, default='postgres',
+        help='Username for database connection.')
+    parser.add_argument(
+        '--password', type=str, default='postgres',
+        help='Password for database connection.')
+    parser.add_argument(
+        '--port', type=int, default=5432,
+        help='Database port'
+    )
+    parser.add_argument(
+        '--host', type=str, default='localhost',
+        help='Hostname for the database'
+    )
+    parser.add_argument(
+        '-o', '--outfile', default='generated.py',
+        help='Name of the generated file.'
+
+    )
     args = parser.parse_args()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main(args))
+
+
+if __name__ == '__main__':
+    entrypoint()
