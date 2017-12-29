@@ -1,4 +1,6 @@
+asyncpg
 pytest
 pytest-cov
 wheel
 dockerctx
+portpicker
