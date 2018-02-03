@@ -55,6 +55,7 @@ class Database:
         await conn.close()
 
     async def add_listener(self, channel, callback):
+        # TODO: this is very wasteful. Should use a single connection for multiple listeners.
         conn: asyncpg.Connection = await self.pool.acquire()
         await conn.add_listener(channel, callback)
         self.listeners.append(conn)
