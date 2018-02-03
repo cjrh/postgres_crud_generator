@@ -43,7 +43,7 @@ import datetime
 from decimal import Decimal
 import ipaddress
 import json
-from typing import List
+from typing import List, Sequence
 from pprint import pformat
 import asyncpg
 from asyncpg.pool import Pool
@@ -204,12 +204,14 @@ $init_assignments
             return cls(**records[0])
 
     @classmethod
-    async def read_many(cls, where_clause: str, params: List) -> 'List[${table_name}]':
+    async def read_many(cls, where_clause: str = '', params: Sequence = ()) -> 'List[${table_name}]':
+        final_where = ''
+        if where_clause:
+            final_where = f'\\nWHERE {where_clause}'
+        
         async with pool.acquire() as conn:
             records = await conn.fetch(f"""\\
-                SELECT * FROM slayer2.${table_name}
-                WHERE
-                    {where_clause}
+                SELECT * FROM slayer2.${table_name}{final_where}
             """, *params)
 
             return [cls(**r) for r in records]
@@ -246,8 +248,12 @@ $init_assignments
             setattr(self, f, v)
 
     @classmethod
-    async def update_many(cls, *, where_clause: str, where_params: List, $update_params):
-        """ With parameters in the `where_clause`, start numbering at $1. """
+    async def update_many(cls, *, where_clause: str = '', where_params: Sequence = (), $update_params):
+        """ Parameters in the `where_clause` will start numbering at $1."""
+        final_where = ''
+        if where_clause:
+            final_where = f'\\nWHERE {where_clause}'
+        
         sql_fields = []
         sql_values = []
         fieldnames = [$update_fieldnames]
