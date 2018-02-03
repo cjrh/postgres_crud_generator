@@ -426,13 +426,11 @@ async def generate(conn: Connection, args):
             #     f' = None' if c.is_nullable else ''
             # )
 
-
             # if c.is_nullable:
             #     default_none = ' = None'
             # else:
             #     default_none = ''
             #     init_assignment = ' = {c.name}'
-
 
         out = TABLE_TEMPLATE.safe_substitute(
             table_name=table_name,
@@ -483,7 +481,6 @@ async def generate(conn: Connection, args):
     src, _ = FormatCode(src)
     with open(args.outfile, 'w') as f:
         f.write(src)
-
 
     # await conn.execute('''
     #     CREATE TABLE users(
