@@ -3,14 +3,14 @@ requires = ["flit"]
 build-backend = "flit.buildapi"
 
 [tool.flit.metadata]
-module = "gencrud"
+module = "pg_crud_gen"
 author = "Caleb Hattingh"
 author-email = "caleb.hattingh@gmail.com"
 home-page = "https://github.com/cjrh/postgres_crud_generator"
 classifiers = ["License :: OSI Approved :: Apache Software License", "Natural Language :: English", "Programming Language :: Python", "Programming Language :: Python :: 3.6", "Operating System :: OS Independent"]
 description-file = "README.rst"
-requires = ["asyncpg"]
+requires = ["asyncpg", "yapf", "awesome-slugify"]
 dev-requires = ["pytest", "pytest-cov", "wheel", "dockerctx", "portpicker"]
 
 [tool.flit.scripts]
-gencrud = "gencrud:entrypoint"
+gencrud = "pg_crud_gen:entrypoint"
