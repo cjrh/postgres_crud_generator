@@ -161,3 +161,18 @@ def test_read_many_filter(poolinit):
 
     print()
     print(len(items), items)
+
+
+async def enum_stuff():
+    devices = await generated.device.read_many()
+    device_id = choice(devices).id
+    item = await generated.reserved_vid.create(
+        vid=asyncpg.Range(lower=10, upper=20),
+        type=generated.vid_reservation_enum.Customer.value,
+        device_id=device_id
+    )
+    print(item)
+
+
+def test_enum(poolinit):
+    loop.run_until_complete(enum_stuff())
