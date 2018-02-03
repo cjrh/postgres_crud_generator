@@ -1,12 +1,13 @@
+import logging
 import asyncio
+from random import choice
 from uuid import uuid4
 
 import asyncpg
 import pytest
 import datetime
 
-import generated
-
+import generated2 as generated
 
 loop = asyncio.get_event_loop()
 
@@ -23,7 +24,6 @@ def poolinit():
 
 
 def test_basic(poolinit):
-
     async def ex():
         async with generated.pool.acquire() as conn:
             return await conn.fetch('select * from allocated_port')
@@ -33,99 +33,103 @@ def test_basic(poolinit):
     print('x=', x)
 
 
-def test_read(poolinit):
+async def reads():
+    all_allocations = await generated.allocated_port.read_many('1=1')
+    random_allocation: generated.allocated_port = choice(all_allocations)
 
-    pa: generated.allocated_port = loop.run_until_complete(
-        generated.allocated_port.read(id='8aabca54-fed2-408c-b0bf-dac9722707e0')
+    logging.getLogger('asyncpg').setLevel('DEBUG')
+
+    pa: generated.allocated_port = await generated.allocated_port.read(
+        id=random_allocation.id
     )
+
     print()
     print(pa)
 
-    port = loop.run_until_complete(
-        generated.port.read(id=pa.port_id)
-    )
+    port = await generated.port.read(id=pa.port_id)
     print(port)
 
-    device = loop.run_until_complete(
-        generated.device.read(id=port.device_id)
-    )
+    device = await generated.device.read(id=port.device_id)
     print(device)
 
-    pop = loop.run_until_complete(
-        generated.pop.read(id=device.pop_id)
-    )
+    pop = await generated.pop.read(id=device.pop_id)
     print(pop)
 
-    region = loop.run_until_complete(
-        generated.region.read(id=pop.region_id)
-    )
+    region = await generated.region.read(id=pop.region_id)
     print(region)
 
 
+def test_read(poolinit):
+    loop.run_until_complete(reads())
+
+
+async def create_stuff():
+    # Choose device
+    devices = await generated.device.read_many()
+
+    vlan: generated.vlan = await generated.vlan.create(
+        label=str(uuid4()),
+        vid=1234,
+        device_id=choice(devices).id
+    )
+    print(vlan)
+
+    fetch_vlan: generated.vlan = await generated.vlan.read(id=vlan.id)
+    print('after fetch:', fetch_vlan)
+
+    assert vlan.id == fetch_vlan.id
+
+
 def test_create(poolinit):
-
-    vlan: generated.vlan = loop.run_until_complete(
-        generated.vlan.create(
-            label=uuid4()
-        )
-    )
-
-    print(vlan)
-
-    fetch_vlan: generated.vlan = loop.run_until_complete(
-        generated.vlan.read(id=vlan.id)
-    )
-
-    print('after fetch:', fetch_vlan)
+    loop.run_until_complete(create_stuff())
 
 
-def test_update(poolinit):
-    vlan: generated.vlan = loop.run_until_complete(
-        generated.vlan.create(
-            label=uuid4()
-        )
+async def update_stuff():
+    devices = await generated.device.read_many()
+    vlan: generated.vlan = await generated.vlan.create(
+        label=str(uuid4()),
+        vid=1235,
+        device_id=choice(devices).id
     )
     print(vlan)
 
-    fetch_vlan: generated.vlan = loop.run_until_complete(
-        generated.vlan.read(id=vlan.id)
-    )
+    fetch_vlan: generated.vlan = await generated.vlan.read(id=vlan.id)
     print('after fetch:', fetch_vlan)
-
-    loop.run_until_complete(
-        fetch_vlan.update(deleted_at=datetime.datetime.utcnow())
-    )
+    await fetch_vlan.update(deleted_at=datetime.datetime.utcnow())
     print('after delete, before fetch:', fetch_vlan)
     assert fetch_vlan.deleted_at is not None
 
-    fetch_vlan: generated.vlan = loop.run_until_complete(
-        generated.vlan.read(id=vlan.id)
+    fetch_vlan: generated.vlan = await generated.vlan.read(id=vlan.id)
+    print('after delete, after fetch:', fetch_vlan)
+    assert fetch_vlan.deleted_at is not None
+
+
+def test_update(poolinit):
+    loop.run_until_complete(update_stuff())
+
+
+async def delete_stuff():
+    devices = await generated.device.read_many()
+    vlan: generated.vlan = await generated.vlan.create(
+        label=str(uuid4()),
+        vid=1236,
+        device_id=choice(devices).id
     )
+    print(vlan)
+    await vlan.delete()
+    print('after delete, before fetch:', vlan)
+    assert vlan.deleted_at is not None
+
+    fetch_vlan: generated.vlan = await generated.vlan.read(id=vlan.id)
     print('after delete, after fetch:', fetch_vlan)
     assert fetch_vlan.deleted_at is not None
 
 
 def test_delete(poolinit):
-    vlan: generated.vlan = loop.run_until_complete(
-        generated.vlan.create(
-            label=uuid4()
-        )
-    )
-    print(vlan)
-
-    loop.run_until_complete(vlan.delete())
-    print('after delete, before fetch:', vlan)
-    assert vlan.deleted_at is not None
-
-    fetch_vlan: generated.vlan = loop.run_until_complete(
-        generated.vlan.read(id=vlan.id)
-    )
-    print('after delete, after fetch:', fetch_vlan)
-    assert fetch_vlan.deleted_at is not None
+    loop.run_until_complete(delete_stuff())
 
 
 def test_read_many(poolinit):
-
     items = loop.run_until_complete(
         generated.vlan.read_many('1=1', [])
     )
@@ -148,7 +152,6 @@ def test_read_many(poolinit):
 
 
 def test_read_many_filter(poolinit):
-
     items = loop.run_until_complete(
         generated.vlan.read_many(
             'deleted_at is not null',
@@ -158,4 +161,3 @@ def test_read_many_filter(poolinit):
 
     print()
     print(len(items), items)
-
