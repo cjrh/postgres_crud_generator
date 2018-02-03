@@ -176,3 +176,20 @@ async def enum_stuff():
 
 def test_enum(poolinit):
     loop.run_until_complete(enum_stuff())
+
+
+async def json_stuff():
+    devices = await generated.device.read_many()
+    device_id = choice(devices).id
+    item = await generated.reserved_vid.create(
+        vid=asyncpg.Range(lower=10, upper=20),
+        type=generated.vid_reservation_enum.Customer.value,
+        device_id=device_id
+    )
+    serialized = item.json(pretty=True)
+    assert serialized
+    print(serialized)
+
+
+def test_json(poolinit):
+    loop.run_until_complete(json_stuff())

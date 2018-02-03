@@ -28,7 +28,7 @@ import uuid
 from slugify import slugify
 
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 
 header = '''\
@@ -45,6 +45,7 @@ from typing import List, Sequence
 from enum import Enum
 import asyncpg
 from asyncpg.pool import Pool
+from autoslot import Slots
 
 
 pool: Pool = None
@@ -54,7 +55,7 @@ class UNCHANGED:
     pass
     
     
-class CRUDTable:
+class CRUDTable(Slots):
     def __repr__(self):
         """ Try hard to use the repr of the attributes too. """
         fields = ', '.join(f'{{k}}={{v!r}}' for k, v in self.__dict__.items())
@@ -167,6 +168,7 @@ class ${table_name}(CRUDTable):
     def __init__(self, *, $init_params):
         """ This initializer is mainly for static type engines. Use one
         of the classmethods to create instances (with DB interaction) """
+        super().__init__()
 $init_assignments
 
     @classmethod
