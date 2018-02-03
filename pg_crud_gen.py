@@ -8,7 +8,7 @@ Code generator to make CRUD classes for an existing Postgres DB.
 import asyncio
 from collections import OrderedDict, defaultdict
 from typing import NamedTuple, List, Dict, Iterable
-from textwrap import indent, dedent
+from textwrap import indent
 
 from asyncpg.connection import Connection
 from argparse import (
@@ -18,7 +18,6 @@ from argparse import (
 )
 from string import Template
 from pprint import pprint
-import datetime
 
 
 import asyncpg
