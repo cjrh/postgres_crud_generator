@@ -297,20 +297,20 @@ class Table(NamedTuple):
     columns: Dict[str, Column]
 
 
-def comma_sep(columns: Iterable[Column], wrap='', filter=lambda c: True) -> str:
-    return ', '.join(f'{wrap}{c.name}{wrap}' for c in columns if filter(c))
+def comma_sep(columns: Iterable[Column], wrap='', filter_=lambda c: True) -> str:
+    return ', '.join(f'{wrap}{c.name}{wrap}' for c in columns if filter_(c))
 
 
-def comma_sep_type(columns: Iterable[Column], filter=lambda c: True) -> str:
-    return ', '.join(f'{c.name}: {c.type}' for c in columns if filter(c))
+def comma_sep_type(columns: Iterable[Column], filter_=lambda c: True) -> str:
+    return ', '.join(f'{c.name}: {c.type}' for c in columns if filter_(c))
 
 
-def comma_sep_type_none(columns: Iterable[Column], filter=lambda c: True) -> str:
-    return ', '.join(f'{c.name}: {c.type}{c.nullstr}' for c in columns if filter(c))
+def comma_sep_type_none(columns: Iterable[Column], filter_=lambda c: True) -> str:
+    return ', '.join(f'{c.name}: {c.type}{c.nullstr}' for c in columns if filter_(c))
 
 
-def comma_sep_type_def(columns: Iterable[Column], default=' = UNCHANGED', filter=lambda c: True) -> str:
-    return ', '.join(f'{c.name}: {c.type}{default}' for c in columns if filter(c))
+def comma_sep_type_def(columns: Iterable[Column], default=' = UNCHANGED', filter_=lambda c: True) -> str:
+    return ', '.join(f'{c.name}: {c.type}{default}' for c in columns if filter_(c))
 
 
 async def get_enums(conn: Connection) -> Dict[str, List[str]]:
@@ -448,22 +448,22 @@ async def generate(conn: Connection, args):
             # create
             create_params=comma_sep_type_none(
                 table.columns.values(),
-                filter=lambda c: not c.default
+                filter_=lambda _: not _.default
             ),
 
             # update
             update_params=comma_sep_type_def(
                 table.columns.values(),
-                filter=lambda c: not c.default
+                filter_=lambda _: not _.default
             ),
             update_fieldnames=comma_sep(
                 table.columns.values(),
                 wrap="'",
-                filter=lambda c: not c.default
+                filter_=lambda _: not _.default
             ),
             update_fieldvalues=comma_sep(
                 table.columns.values(),
-                filter=lambda c: not c.default
+                filter_=lambda _: not _.default
             ),
 
             # Other
