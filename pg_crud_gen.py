@@ -289,6 +289,7 @@ class Column(NamedTuple):
     type: str  # data_type
     default: str = ''  # column_default
     nullstr: str = ''  # or it could be " = None"
+    comment: str = ''
 
 
 class Table(NamedTuple):
