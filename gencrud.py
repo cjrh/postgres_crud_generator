@@ -263,9 +263,7 @@ $init_assignments
             await conn.execute(f"""\\
                 UPDATE ${table_name}
                 SET
-                    {', '.join(sql_fields)}
-                WHERE
-                    {where_clause}
+                    {', '.join(sql_fields)}{final_where}
             """, *where_params, *sql_values)
             
     async def delete(self):
