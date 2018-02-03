@@ -58,23 +58,15 @@ class UNCHANGED:
     
 class CRUDTable:
     def __repr__(self):
-        return str(self)
-        
+        """ Try hard to use the repr of the attributes too. """
+        fields = ', '.join(f'{{k}}={{v!r}}' for k, v in self.__dict__.items())
+        return f'{{self.__class__.__name__}}({{fields}})'
+
     def __str__(self):
-        return self.json(pretty=True)
+        return repr(self)
         
     def json(self, pretty=None) -> str:
-        return json.dumps(
-            self.__dict__,
-            default=str,
-            indent=pretty and 4
-        )
-        
-    @classmethod
-    def from_json(cls, text: str):
-        # TODO: this doesn't really work. Need to be able to deserialise
-        # TODO: arbitrary types back from str.
-        return cls(**json.loads(text))
+        return json.dumps(self.__dict__, default=str, indent=pretty and 4)
     
 '''
 
