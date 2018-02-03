@@ -370,13 +370,23 @@ async def generate(conn: Connection, args):
             )
 
         colname = c['column_name']
+        comment = ''
 
         if c['data_type'] in postgres_to_python_text:
             type_ = postgres_to_python_text[c['data_type']]
         elif c['data_type'] == 'USER-DEFINED':
-            # It's an enum
-            enum_name = c['udt_name']
-            type_ = enum_name
+            # It's an enum. The following code enters the correct name
+            # of the enum into the type signature, but unfortunately, there
+            # are a whole bunch of other things that would have to be done
+            # to make enums work in a transparent way. The easy way out
+            # is to just treat enums as strings instead.
+
+            # enum_name = c['udt_name']
+            # type_ = enum_name
+
+            type_ = 'str'
+            comment = f"  # Enum: {c['udt_name']}"
+
         else:
             print(f'I failed to figure out the type for {c["data_type"]} '
                   f'for column {colname} in table {table_name}. Setting '
@@ -385,9 +395,10 @@ async def generate(conn: Connection, args):
 
         tables[table_name].columns[colname] = Column(
             name=colname,
-            type=postgres_to_python_text.get(c['data_type'], f"'{c['data_type']}'"),
+            type=type_,
             default=c['column_default'],
-            nullstr=' = None' if c['is_nullable'] == 'YES' else ''
+            nullstr=' = None' if c['is_nullable'] == 'YES' else '',
+            comment=comment
         )
 
     pprint(tables)
