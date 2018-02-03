@@ -337,10 +337,11 @@ def generate_enum_code(enums_db: Dict[str, List[str]]) -> str:
 
     for enum_name, enum_values in enums_db.items():
         slug_enum_values = [slugify(v, separator='_') for v in enum_values]
-        assignments = ',\n'.join(
+        assignments = '\n'.join(
             ' ' * 4 + f"{s}='{v}'" for s, v in zip(slug_enum_values, enum_values)
         )
-        code = f'class {enum_name}(Enum):\n{assignments}'
+
+        code = f'# noinspection PyPep8Naming\nclass {enum_name}(Enum):\n{assignments}'
         enum_code.append(code)
 
     return '\n\n'.join(enum_code)
