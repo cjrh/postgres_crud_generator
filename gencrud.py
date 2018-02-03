@@ -360,7 +360,8 @@ async def generate(conn: Connection, args):
     # Generate output
     generated_classes = [header]
 
-    for table_name, table in tables.items():
+    for table_name in sorted(tables.keys()):
+        table = tables[table_name]
         if table_name in table_skips:
             continue
 
