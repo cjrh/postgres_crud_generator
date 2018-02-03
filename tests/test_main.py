@@ -7,7 +7,7 @@ import asyncpg
 import pytest
 import datetime
 
-import generated2 as generated
+import generated
 
 loop = asyncio.get_event_loop()
 
