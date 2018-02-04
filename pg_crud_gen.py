@@ -58,14 +58,16 @@ class UNCHANGED:
 class CRUDTable(Slots):
     def __repr__(self):
         """ Try hard to use the repr of the attributes too. """
-        fields = ', '.join(f'{{k}}={{v!r}}' for k, v in self.__dict__.items())
+        d = {{k: getattr(self, k) for k in self.__slots__}}
+        fields = ', '.join(f'{{k}}={{v!r}}' for k, v in d.items())
         return f'{{self.__class__.__name__}}({{fields}})'
 
     def __str__(self):
         return repr(self)
         
     def json(self, pretty=None) -> str:
-        return json.dumps(self.__dict__, default=str, indent=pretty and 4)
+        d = {{k: getattr(self, k) for k in self.__slots__}}
+        return json.dumps(d, default=str, indent=pretty and 4)
     
 {enums}
 '''
