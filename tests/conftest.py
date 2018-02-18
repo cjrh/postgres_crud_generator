@@ -5,6 +5,7 @@ import pytest
 import dockerctx
 import portpicker
 import util
+import os
 
 
 logging.basicConfig(level='DEBUG')
@@ -12,7 +13,7 @@ logging.basicConfig(level='DEBUG')
 
 @pytest.fixture
 def postgres_port():
-    port = portpicker.pick_unused_port()
+    port = os.environ.get('DEVPORT', None) or portpicker.pick_unused_port()
     with dockerctx.new_container(
         image_name='postgres:alpine',
         ports={'5432/tcp': port},
@@ -32,7 +33,7 @@ def loop():
 
 
 @pytest.fixture
-def db_connection(postgres_port, loop):
+def db_pool(postgres_port, loop):
 
     async def dbup():
         db = util.Database(
@@ -43,11 +44,11 @@ def db_connection(postgres_port, loop):
             user='postgres',
             password='postgres',
         )
-        conn = await db.connect()
-        return conn, db
+        pool = await db.connect()
+        return pool, db
 
-    conn, db = loop.run_until_complete(dbup())
+    pool, db = loop.run_until_complete(dbup())
     try:
-        yield conn
+        yield pool, db.params
     finally:
         loop.run_until_complete(db.disconnect())

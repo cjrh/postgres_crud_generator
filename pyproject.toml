@@ -13,4 +13,4 @@ requires = ["asyncpg", "yapf", "awesome-slugify", "autoslot"]
 dev-requires = ["pytest", "pytest-cov", "wheel", "dockerctx", "portpicker"]
 
 [tool.flit.scripts]
-gencrud = "pg_crud_gen:entrypoint"
+pg_crud_gen = "pg_crud_gen:entrypoint"

@@ -1,11 +1,16 @@
 # util.py
+import logging
 import argparse, asyncio, asyncpg
 from asyncpg.pool import Pool
 
 DSN = 'postgresql://{user}:{password}@{host}:{port}'
 DSN_DB = DSN + '/{name}'
-CREATE_DB = 'CREATE DATABASE {name}'
-DROP_DB = 'DROP DATABASE {name}'
+CREATE_DB = 'CREATE DATABASE {name};'
+DROP_DB = 'DROP DATABASE {name};'
+
+
+apglog = logging.getLogger('asyncpg')
+apglog.setLevel('DEBUG')
 
 
 class Database:
@@ -29,6 +34,7 @@ class Database:
     async def connect(self) -> Pool:
         if self.owner:
             await self.server_command(CREATE_DB.format(**self.params))
+            # print(output)
 
         self.pool = await asyncpg.create_pool(DSN_DB.format(**self.params))
         return self.pool

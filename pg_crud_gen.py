@@ -5,10 +5,13 @@ Postgres CRUD generator
 Code generator to make CRUD classes for an existing Postgres DB.
 
 """
+
+import sys
 import asyncio
 from collections import OrderedDict, defaultdict
 from typing import NamedTuple, List, Dict, Iterable
 from textwrap import indent
+import logging
 
 from asyncpg.connection import Connection
 from argparse import (
@@ -177,7 +180,7 @@ $init_assignments
     async def create(cls, *, $create_params) -> '${table_name}':
         async with pool.acquire() as conn:
             r = await conn.fetchrow("""\\
-                INSERT INTO slayer2.${table_name} 
+                INSERT INTO ${table_name} 
                     ($calc_fields)
                 VALUES (
                     $field_nums
@@ -189,7 +192,7 @@ $init_assignments
     async def read(cls, *, $pk: $pktype) -> '${table_name}':
         async with pool.acquire() as conn:
             records = await conn.fetch("""\\
-                SELECT * FROM slayer2.${table_name}
+                SELECT * FROM ${table_name}
                 WHERE
                     ${table_name}.${pk} = $1
             """, $pk)
@@ -204,7 +207,7 @@ $init_assignments
         
         async with pool.acquire() as conn:
             records = await conn.fetch(f"""\\
-                SELECT * FROM slayer2.${table_name}{final_where}
+                SELECT * FROM ${table_name}{final_where}
             """, *params)
 
             return [cls(**r) for r in records]
@@ -271,7 +274,7 @@ $init_assignments
         async with pool.acquire() as conn:
             deleted_at = datetime.datetime.utcnow()
             await conn.execute(f"""\\
-                UPDATE slayer2.${table_name}
+                UPDATE ${table_name}
                 SET deleted_at = $2
                 WHERE
                     ${pk} = $1
@@ -281,7 +284,7 @@ $init_assignments
     async def delete_hard(self):
         async with pool.acquire() as conn:
             await conn.execute(f"""\\
-                DELETE FROM slayer2.${table_name}
+                DELETE FROM ${table_name}
                 WHERE
                     ${table_name}.${pk} = $1
             """, self.$pk)
@@ -353,13 +356,13 @@ def generate_enum_code(enums_db: Dict[str, List[str]]) -> str:
 
 async def generate(conn: Connection, args):
     table_skips = {'alembic_version'}
-    pkeys = await get_primary_keys(conn)
+    pkeys = await get_primary_keys(conn, args)
     pprint(pkeys)
 
-    columns = await conn.fetch('''\
+    columns = await conn.fetch(f'''\
         select *
-        from slayer2.information_schema.columns
-        where table_schema = 'slayer2';
+        from {args.db}.information_schema.columns
+        where table_schema = '{args.db}';
     ''')
 
     tables: Dict[str, Table] = {}
@@ -519,7 +522,6 @@ async def generate(conn: Connection, args):
 
 
 async def main(args):
-    # dsn = 'postgresql://slayer2:slayer2@localhost:41329/slayer2'
     dsn = f'postgresql://{args.user}:{args.password}@{args.host}:{args.port}/{args.db}'
     conn: Connection = await asyncpg.connect(dsn)
     try:
@@ -528,10 +530,10 @@ async def main(args):
         await conn.close()
 
 
-async def get_primary_keys(conn: Connection) -> Dict[str, str]:
-    sql = '''\
+async def get_primary_keys(conn: Connection, args) -> Dict[str, str]:
+    sql = f'''\
     SELECT  *
-    FROM    slayer2.INFORMATION_SCHEMA.TABLES t
+    FROM    {args.db}.INFORMATION_SCHEMA.TABLES t
              LEFT JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
                      ON tc.table_catalog = t.table_catalog
                      AND tc.table_schema = t.table_schema
@@ -561,31 +563,33 @@ def entrypoint():
     class Formatter(RawDescriptionHelpFormatter, ArgumentDefaultsHelpFormatter):
         pass
 
-    parser = ArgumentParser(
-        description=__doc__,
-        formatter_class=Formatter
-    )
+    parser = ArgumentParser(description=__doc__, formatter_class=Formatter)
     parser.add_argument(
         '--db', type=str, help='Database name')
     parser.add_argument(
         '--user', type=str, default='postgres',
-        help='Username for database connection.')
+        help='database username')
     parser.add_argument(
         '--password', type=str, default='postgres',
-        help='Password for database connection.')
+        help='database password')
     parser.add_argument(
         '--port', type=int, default=5432,
-        help='Database port'
+        help='database port'
     )
     parser.add_argument(
         '--host', type=str, default='localhost',
-        help='Hostname for the database'
+        help='database hostname'
     )
     parser.add_argument(
         '-o', '--outfile', default='generated.py',
-        help='Name of the generated file.'
+        help='output filename'
 
     )
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
+
     args = parser.parse_args()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main(args))
