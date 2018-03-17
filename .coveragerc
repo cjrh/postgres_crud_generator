@@ -1,5 +1,8 @@
 [run]
 branch = True
+include =
+    pg_crud_gen.py
+    tests/
 
 [report]
 # Regexes for lines to exclude from consideration
