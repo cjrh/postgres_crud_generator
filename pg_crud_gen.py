@@ -56,8 +56,8 @@ pool: Pool = None
 
 class UNCHANGED:
     pass
-    
-    
+
+
 class CRUDTable(Slots):
     def __repr__(self):
         """ Try hard to use the repr of the attributes too. """
@@ -67,11 +67,11 @@ class CRUDTable(Slots):
 
     def __str__(self):
         return repr(self)
-        
+
     def json(self, pretty=None) -> str:
         d = {{k: getattr(self, k) for k in self.__slots__}}
         return json.dumps(d, default=str, indent=pretty and 4)
-    
+
 {enums}
 '''
 
@@ -180,7 +180,7 @@ $init_assignments
     async def create(cls, *, $create_params) -> '${table_name}':
         async with pool.acquire() as conn:
             r = await conn.fetchrow("""\\
-                INSERT INTO ${table_name} 
+                INSERT INTO ${table_name}
                     ($calc_fields)
                 VALUES (
                     $field_nums
@@ -204,14 +204,14 @@ $init_assignments
         final_where = ''
         if where_clause:
             final_where = f'\\nWHERE {where_clause}'
-        
+
         async with pool.acquire() as conn:
             records = await conn.fetch(f"""\\
                 SELECT * FROM ${table_name}{final_where}
             """, *params)
 
             return [cls(**r) for r in records]
-            
+
     async def update(self, *, $update_params):
         sql_fields = []
         sql_values = []
@@ -249,7 +249,7 @@ $init_assignments
         final_where = ''
         if where_clause:
             final_where = f'\\nWHERE {where_clause}'
-        
+
         sql_fields = []
         sql_values = []
         fieldnames = [$update_fieldnames]
@@ -269,7 +269,7 @@ $init_assignments
                 SET
                     {', '.join(sql_fields)}{final_where}
             """, *where_params, *sql_values)
-            
+
     async def delete(self):
         async with pool.acquire() as conn:
             deleted_at = datetime.datetime.utcnow()
@@ -278,7 +278,7 @@ $init_assignments
                 SET deleted_at = $2
                 WHERE
                     ${pk} = $1
-            """, self.$pk, deleted_at) 
+            """, self.$pk, deleted_at)
         self.deleted_at = deleted_at
 
     async def delete_hard(self):
