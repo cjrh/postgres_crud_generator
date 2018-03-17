@@ -10,7 +10,7 @@ import pg_crud_gen
 async def make_table(pool: asyncpg.pool.Pool):
     return await pool.execute(f'''
             CREATE TABLE IF NOT EXISTS demo(
-                id SERIAL PRIMARY KEY, 
+                id SERIAL PRIMARY KEY,
                 sample_uuid UUID,
                 sample_ts TIMESTAMP,
                 sample_tsz TIMESTAMPTZ,
@@ -24,7 +24,7 @@ async def make_table(pool: asyncpg.pool.Pool):
 async def make_data(pool: asyncpg.pool.Pool):
     await pool.execute(f'''\
         INSERT INTO demo (
-            sample_uuid, 
+            sample_uuid,
             sample_ts,
             sample_tsz,
             sample_text,
