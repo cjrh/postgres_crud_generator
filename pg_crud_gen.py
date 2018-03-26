@@ -22,7 +22,6 @@ from argparse import (
 from string import Template
 from pprint import pprint
 
-
 import asyncpg
 import ipaddress
 import datetime
@@ -32,6 +31,7 @@ from slugify import slugify
 
 
 __version__ = '0.0.2'
+logger = logging.getLogger('main')
 
 
 header = '''\
@@ -362,7 +362,7 @@ async def generate(conn: Connection, args):
     columns = await conn.fetch(f'''\
         select *
         from {args.db}.information_schema.columns
-        where table_schema = '{args.db}';
+        where table_schema = '{args.schema}';
     ''')
 
     tables: Dict[str, Table] = {}
@@ -566,6 +566,8 @@ def entrypoint():
     parser = ArgumentParser(description=__doc__, formatter_class=Formatter)
     parser.add_argument(
         '--db', type=str, help='Database name')
+    parser.add_argument(
+        '--schema', type=str, help='Schema', default='public')
     parser.add_argument(
         '--user', type=str, default='postgres',
         help='database username')
