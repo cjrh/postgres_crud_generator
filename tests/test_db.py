@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 from typing import List, Optional, Tuple
 from uuid import uuid4
 
@@ -58,23 +59,30 @@ def test_simple(db_pool: asyncpg.pool.Pool, loop):
 
     import tempfile
 
-    gen_f = tempfile.NamedTemporaryFile(suffix='.py')
-    print(f'Generated filename: {gen_f.name}')
+    @contextmanager
+    def ntf():
+        gen_f = tempfile.NamedTemporaryFile(delete=False, suffix='.py')
+        print(f'Generated filename: {gen_f.name}')
+        gen_f.close()
+        try:
+            yield gen_f
+        finally:
+            gen_f.close()
+            os.unlink(gen_f.name)
 
     from types import SimpleNamespace
-    args = SimpleNamespace(outfile=gen_f.name, db='crudtest', schema='public', **db_params)
-    loop.run_until_complete(pg_crud_gen.main(args))
 
-    with open(gen_f.name) as f:
-        print('\nGenerated:\n')
-        print(f.read())
-        import shutil
-        from pathlib import Path
-        # dest = Path(os.path.expanduser('~/temp/')) / \
-        #     f'generated-{uuid4()}.py'
-        dest = Path(os.path.expanduser('~/temp/')) / \
-            f'generated-test_db.py'
-        shutil.copyfile(gen_f.name, dest)
+    with ntf() as gen_f:
+        args = SimpleNamespace(outfile=gen_f.name, db='crudtest', schema='public', **db_params)
+        loop.run_until_complete(pg_crud_gen.main(args))
+        with open(gen_f.name) as f:
+            print('\nGenerated:\n')
+            print(f.read())
+
+            import shutil
+            from pathlib import Path
+            dest = Path(__file__).parent.parent / 'generated-test_db.py'
+            shutil.copyfile(gen_f.name, dest)
 
 
 def run_cli(params: Optional[str] = '') -> Tuple[bool, str]:

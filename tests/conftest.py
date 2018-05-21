@@ -17,7 +17,11 @@ def postgres_port():
     with dockerctx.new_container(
         image_name='postgres:alpine',
         ports={'5432/tcp': port},
-        ready_test=lambda: dockerctx.pg_ready(host='localhost', port=port)
+        ready_test=lambda: dockerctx.pg_ready(
+            host='localhost',
+            port=port,
+            timeout=6000
+        )
     ) as container:
         yield port
 

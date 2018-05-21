@@ -2,7 +2,7 @@
 branch = True
 include =
     pg_crud_gen.py
-    tests/
+    tests/*
 
 [report]
 # Regexes for lines to exclude from consideration
