@@ -32,6 +32,17 @@ from slugify import slugify
 
 __version__ = '0.0.2'
 logger = logging.getLogger('main')
+table_skips = {'alembic_version'}
+
+
+class ForeignKey(NamedTuple):
+    constraint_name: str
+    source_schema: str
+    source_table: str
+    source_column: str
+    target_schema: str
+    target_table: str
+    target_column: str
 
 
 header = '''\
@@ -297,6 +308,8 @@ class Column(NamedTuple):
     default: str = ''  # column_default
     nullstr: str = ''  # or it could be " = None"
     comment: str = ''
+    is_primary_key: bool = False
+    fkey: ForeignKey = None
 
 
 class Table(NamedTuple):
@@ -355,8 +368,11 @@ def generate_enum_code(enums_db: Dict[str, List[str]]) -> str:
 
 
 async def generate(conn: Connection, args):
-    table_skips = {'alembic_version'}
     pkeys = await get_primary_keys(conn, args)
+    fkeys = await get_fk_data(conn)
+    fkmap = {}
+    for fk in fkeys:
+        fkmap[fk.source_table + '.' + fk.source_column] = fk
     pprint(pkeys)
 
     columns = await conn.fetch(f'''\
@@ -405,7 +421,9 @@ async def generate(conn: Connection, args):
             type=type_,
             default=c['column_default'],
             nullstr=' = None' if c['is_nullable'] == 'YES' else '',
-            comment=comment
+            comment=comment,
+            is_primary_key=pkeys[table_name] == colname,
+            fkey=fkmap.get(f'{table_name}.{colname}')
         )
 
     write_crud(tables)
@@ -598,16 +616,6 @@ def entrypoint():
     loop.run_until_complete(main(args))
 
 
-class ForeignKey(NamedTuple):
-    constraint_name: str
-    source_schema: str
-    source_table: str
-    source_column: str
-    target_schema: str
-    target_table: str
-    target_column: str
-
-
 async def get_fk_data(connection: Connection) -> List[ForeignKey]:
     sql = '''\
     SELECT
@@ -663,10 +671,19 @@ def write_crud(tables: Dict):
             
         '''))
         for table_name, v in tables.items():
+            if table_name in table_skips:
+                continue
             fields = []
             for column_name, col in v.columns.items():
                 col: Column
-                fields.append(f'{col.name}: {col.type}{col.nullstr}')
+                pkcomment = '  # PK' if col.is_primary_key else ''
+                comment = '#' if col.is_primary_key else ''
+
+                fkeynote = ''
+                if col.fkey:
+                    fkeynote = f'  # FK to {col.fkey.target_table}.{col.fkey.target_column}'
+
+                fields.append(f'{comment}{col.name}: {col.type}{col.nullstr}{pkcomment}{fkeynote}')
 
             field_block = indent('\n'.join(fields), ' ' * 4)
             text = dedent('''\
