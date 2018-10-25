@@ -10,7 +10,7 @@ import sys
 import asyncio
 from collections import OrderedDict, defaultdict
 from typing import NamedTuple, List, Dict, Iterable
-from textwrap import indent
+from textwrap import indent, dedent
 import logging
 
 from asyncpg.connection import Connection
@@ -408,6 +408,7 @@ async def generate(conn: Connection, args):
             comment=comment
         )
 
+    write_crud(tables)
     pprint(tables)
 
     # Generate output
@@ -640,5 +641,51 @@ async def get_fk_data(connection: Connection) -> List[ForeignKey]:
     return results
 
 
+def write_crud(tables: Dict):
+    # tables[table_name].columns[colname] = Column(
+    #     name=colname,
+    #     type=type_,
+    #     default=c['column_default'],
+    #     nullstr=' = None' if c['is_nullable'] == 'YES' else '',
+    #     comment=comment
+    # )
+    import pathlib
+    p = pathlib.Path(__file__).parent / 'blah.py'
+    with open(p, 'w') as f:
+        f.write(dedent('''\
+            from typing import Any
+            from dataclasses import dataclass
+            import datetime
+            import ipaddress
+            import uuid
+            import asyncpg
+            
+            
+        '''))
+        for table_name, v in tables.items():
+            fields = []
+            for column_name, col in v.columns.items():
+                col: Column
+                fields.append(f'{col.name}: {col.type}{col.nullstr}')
+
+            field_block = indent('\n'.join(fields), ' ' * 4)
+            text = dedent('''\
+                @dataclass
+                class {clsname}(CRUD):
+                {field_block}
+                
+                
+            ''')
+            text = text.format(
+                clsname=table_name.title().replace('_', ''),
+                field_block=field_block
+            )
+
+            print(text)
+            print(dedent(text))
+            f.write(dedent(text))
+
+
 if __name__ == '__main__':
     entrypoint()
+

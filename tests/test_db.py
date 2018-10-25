@@ -19,6 +19,15 @@ async def make_table(pool: asyncpg.pool.Pool):
                 sample_text TEXT,
                 sample_int INTEGER,
                 sample_double DOUBLE PRECISION
+            );
+
+            CREATE TABLE IF NOT EXISTS dem2(
+                id UUID PRIMARY KEY,
+                demo_id INTEGER REFERENCES demo (id),
+                blah INTEGER NOT NULL,
+                device_ip INET,
+                is_valid BOOL,
+                vals INT4RANGE
             )
         ''')
 
