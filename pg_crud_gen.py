@@ -8,8 +8,8 @@ Code generator to make CRUD classes for an existing Postgres DB.
 
 import sys
 import asyncio
-from collections import OrderedDict, defaultdict
-from typing import NamedTuple, List, Dict, Iterable
+from collections import OrderedDict
+from typing import List, Dict, Iterable
 from textwrap import indent, dedent
 import logging
 
@@ -23,27 +23,15 @@ from string import Template
 from pprint import pprint
 
 import asyncpg
-import ipaddress
 import datetime
-from decimal import Decimal
-import uuid
 from slugify import slugify
 
+from pgtools import get_fk_data, Column, Table, get_enums
+from pgtools.types import postgres_to_python_text
 
 __version__ = '0.0.2'
 logger = logging.getLogger('main')
 table_skips = {'alembic_version'}
-
-
-class ForeignKey(NamedTuple):
-    constraint_name: str
-    source_schema: str
-    source_table: str
-    source_column: str
-    target_schema: str
-    target_table: str
-    target_column: str
-
 
 header = '''\
 """ DO NOT MODIFY!!!
@@ -85,98 +73,6 @@ class CRUDTable(Slots):
 
 {enums}
 '''
-
-postgres_to_python = {
-    'anyarray': list,
-    'anyenum': str,
-    'anyrange': asyncpg.Range,
-    'record': asyncpg.Record,  #: tuple,
-    'bit': asyncpg.BitString,
-    'varbit': asyncpg.BitString,
-    'bool': bool,
-    'box': asyncpg.Box,
-    'bytea': bytes,
-    'char': str,
-    'name': str,
-    'varchar': str,
-    'text': str,
-    'xml': str,
-    'cidr': ipaddress.IPv4Network,
-    'inet': ipaddress.IPv4Network,
-    'macaddr': str,
-    'circle': asyncpg.Circle,
-    'date': datetime.date,
-    'time': datetime.time,
-    'time with timezone': datetime.time,
-    'time without timezone': datetime.time,
-    'timestamp': datetime.datetime,
-    'timestamp with timezone': datetime.datetime,
-    'timestamp without timezone': datetime.datetime,
-    'interval': datetime.timedelta,
-    'float': float,
-    'double precision': float,
-    'smallint': int,
-    'integer': int,
-    'bigint': int,
-    'numeric': Decimal,
-    'json': str,
-    'jsonb': str,
-    'line': asyncpg.Line,
-    'lseg': asyncpg.LineSegment,
-    'money': str,
-    'path': asyncpg.Path,
-    'point': asyncpg.Point,
-    'polygon': asyncpg.Polygon,
-    'uuid': uuid.UUID,
-}
-
-
-postgres_to_python_text = {
-    'anyarray': 'list',
-    'anyenum': 'str',
-    'anyrange': 'asyncpg.Range',
-    'int4range': 'asyncpg.Range',
-    'record': 'asyncpg.Record,  #: tuple',
-    'bit': 'asyncpg.BitString',
-    'varbit': 'asyncpg.BitString',
-    'bool': 'bool',
-    'boolean': 'bool',
-    'box': 'asyncpg.Box',
-    'bytea': 'bytes',
-    'char': 'str',
-    'name': 'str',
-    'varchar': 'str',
-    'text': 'str',
-    'xml': 'str',
-    'cidr': 'ipaddress.IPv4Network',
-    'inet': 'ipaddress.IPv4Network',
-    'macaddr': 'str',
-    'circle': 'asyncpg.Circle',
-    'date': 'datetime.date',
-    'time': 'datetime.time',
-    'time with timezone': 'datetime.time',
-    'time without time zone': 'datetime.time',
-    'timestamp': 'datetime.datetime',
-    'timestamp with timezone': 'datetime.datetime',
-    'timestamp without time zone': 'datetime.datetime',
-    'interval': 'datetime.timedelta',
-    'float': 'float',
-    'double precision': 'float',
-    'smallint': 'int',
-    'integer': 'int',
-    'bigint': 'int',
-    'numeric': 'Decimal',
-    'json': 'str',
-    'jsonb': 'str',
-    'line': 'asyncpg.Line',
-    'lseg': 'asyncpg.LineSegment',
-    'money': 'str',
-    'path': 'asyncpg.Path',
-    'point': 'asyncpg.Point',
-    'polygon': 'asyncpg.Polygon',
-    'uuid': 'uuid.UUID',
-}
-
 
 TABLE_TEMPLATE = Template('''\
 # noinspection PyShadowingBuiltins,PyPep8Naming
@@ -302,21 +198,6 @@ $init_assignments
 ''')
 
 
-class Column(NamedTuple):
-    name: str  # column_name
-    type: str  # data_type
-    default: str = ''  # column_default
-    nullstr: str = ''  # or it could be " = None"
-    comment: str = ''
-    is_primary_key: bool = False
-    fkey: ForeignKey = None
-
-
-class Table(NamedTuple):
-    name: str  # table_name
-    columns: Dict[str, Column]
-
-
 def comma_sep(columns: Iterable[Column], wrap='', filter_=lambda c: True) -> str:
     return ', '.join(f'{wrap}{c.name}{wrap}' for c in columns if filter_(c))
 
@@ -331,22 +212,6 @@ def comma_sep_type_none(columns: Iterable[Column], filter_=lambda c: True) -> st
 
 def comma_sep_type_def(columns: Iterable[Column], default=' = UNCHANGED', filter_=lambda c: True) -> str:
     return ', '.join(f'{c.name}: {c.type}{default}' for c in columns if filter_(c))
-
-
-async def get_enums(conn: Connection) -> Dict[str, List[str]]:
-    """ Obtain all the custom enums """
-    sql = '''\
-    select
-      pg_type.typname,
-      pg_enum.enumlabel
-    from pg_type
-    join pg_enum on pg_enum.enumtypid = pg_type.OID;
-    '''
-    records = await conn.fetch(sql)
-    result = defaultdict(list)
-    for r in records:
-        result[r['typname']].append(r['enumlabel'])
-    return result
 
 
 def generate_enum_code(enums_db: Dict[str, List[str]]) -> str:
@@ -365,6 +230,9 @@ def generate_enum_code(enums_db: Dict[str, List[str]]) -> str:
         enum_code.append(code)
 
     return '\n\n'.join(enum_code)
+
+
+
 
 
 async def generate(conn: Connection, args):
@@ -616,39 +484,6 @@ def entrypoint():
     loop.run_until_complete(main(args))
 
 
-async def get_fk_data(connection: Connection) -> List[ForeignKey]:
-    sql = '''\
-    SELECT
-      o.conname AS constraint_name,
-      (SELECT nspname FROM pg_namespace WHERE oid=m.relnamespace) AS source_schema,
-      m.relname AS source_table,
-      (SELECT a.attname FROM pg_attribute a WHERE a.attrelid = m.oid AND a.attnum = o.conkey[1] AND a.attisdropped = false) AS source_column,
-      (SELECT nspname FROM pg_namespace WHERE oid=f.relnamespace) AS target_schema,
-      f.relname AS target_table,
-      (SELECT a.attname FROM pg_attribute a WHERE a.attrelid = f.oid AND a.attnum = o.confkey[1] AND a.attisdropped = false) AS target_column
-    FROM
-      pg_constraint o LEFT JOIN pg_class c ON c.oid = o.conrelid
-      LEFT JOIN pg_class f ON f.oid = o.confrelid LEFT JOIN pg_class m ON m.oid = o.conrelid
-    WHERE
-      o.contype = 'f' AND o.conrelid IN (SELECT oid FROM pg_class c WHERE c.relkind = 'r');
-    '''
-    records = await connection.fetch(sql)
-    results = []
-    for r in records:
-        results.append(
-            ForeignKey(
-                constraint_name=r['constraint_name'],
-                source_schema=r['source_schema'],
-                source_table=r['source_table'],
-                source_column=r['source_column'],
-                target_schema=r['target_schema'],
-                target_table=r['target_table'],
-                target_column=r['target_column']
-            )
-        )
-    return results
-
-
 def write_crud(tables: Dict):
     # tables[table_name].columns[colname] = Column(
     #     name=colname,
@@ -657,11 +492,15 @@ def write_crud(tables: Dict):
     #     nullstr=' = None' if c['is_nullable'] == 'YES' else '',
     #     comment=comment
     # )
+
+    skip_fields = {'id', 'created_at', 'updated_at', 'deleted_at'}
+
+
     import pathlib
     p = pathlib.Path(__file__).parent / 'blah.py'
     with open(p, 'w') as f:
         f.write(dedent('''\
-            from typing import Any
+            from typing import Any, ClassVar
             from dataclasses import dataclass
             import datetime
             import ipaddress
@@ -670,11 +509,14 @@ def write_crud(tables: Dict):
             
             
         '''))
-        for table_name, v in tables.items():
+        for table_name, v in sorted(tables.items()):
             if table_name in table_skips:
                 continue
             fields = []
             for column_name, col in v.columns.items():
+                if column_name in skip_fields:
+                    continue
+
                 col: Column
                 pkcomment = '  # PK' if col.is_primary_key else ''
                 comment = '#' if col.is_primary_key else ''
@@ -683,19 +525,24 @@ def write_crud(tables: Dict):
                 if col.fkey:
                     fkeynote = f'  # FK to {col.fkey.target_table}.{col.fkey.target_column}'
 
-                fields.append(f'{comment}{col.name}: {col.type}{col.nullstr}{pkcomment}{fkeynote}')
+                # For now, set all default values to just be null
+                # nullstr = col.nullstr
+                nullstr = ' = None'
+                fields.append(f'{comment}{col.name}: {col.type}{nullstr}{pkcomment}{fkeynote}')
 
             field_block = indent('\n'.join(fields), ' ' * 4)
             text = dedent('''\
-                @dataclass
+                @dataclass(frozen=True)
                 class {clsname}(CRUD):
+                    __tablename__: ClassVar[str] = '{tablename}'
                 {field_block}
                 
                 
             ''')
             text = text.format(
                 clsname=table_name.title().replace('_', ''),
-                field_block=field_block
+                field_block=field_block,
+                tablename=table_name,
             )
 
             print(text)
