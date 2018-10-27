@@ -26,7 +26,8 @@ import asyncpg
 import datetime
 from slugify import slugify
 
-from pgtools import get_fk_data, Column, Table, get_enums
+from pgtools import get_fk_data, Column, Table, get_enums, Col, \
+    get_primary_keys
 from pgtools.types import postgres_to_python_text
 
 __version__ = '0.0.2'
@@ -232,40 +233,32 @@ def generate_enum_code(enums_db: Dict[str, List[str]]) -> str:
     return '\n\n'.join(enum_code)
 
 
-
-
-
 async def generate(conn: Connection, args):
-    pkeys = await get_primary_keys(conn, args)
+    pkeys = await get_primary_keys(conn, db_name=args.db)
     fkeys = await get_fk_data(conn)
     fkmap = {}
     for fk in fkeys:
         fkmap[fk.source_table + '.' + fk.source_column] = fk
     pprint(pkeys)
 
-    columns = await conn.fetch(f'''\
-        select *
-        from {args.db}.information_schema.columns
-        where table_schema = '{args.schema}';
-    ''')
-
+    columns = await Col.fetch(conn, db_name=args.db, schema_name=args.schema)
     tables: Dict[str, Table] = {}
 
     for c in columns:
         print(c)
-        table_name = c['table_name']
+        table_name = c.table_name
         if table_name not in tables:
             tables[table_name] = Table(
                 name=table_name,
                 columns=OrderedDict()
             )
 
-        colname = c['column_name']
+        colname = c.column_name
         comment = ''
 
-        if c['data_type'] in postgres_to_python_text:
-            type_ = postgres_to_python_text[c['data_type']]
-        elif c['data_type'] == 'USER-DEFINED':
+        if c.data_type in postgres_to_python_text:
+            type_ = postgres_to_python_text[c.data_type]
+        elif c.data_type == 'USER-DEFINED':
             # It's an enum. The following code enters the correct name
             # of the enum into the type signature, but unfortunately, there
             # are a whole bunch of other things that would have to be done
@@ -276,10 +269,10 @@ async def generate(conn: Connection, args):
             # type_ = enum_name
 
             type_ = 'str'
-            comment = f"  # Enum: {c['udt_name']}"
+            comment = f"  # Enum: {c.udt_name}"
 
         else:
-            print(f'I failed to figure out the type for {c["data_type"]} '
+            print(f'I failed to figure out the type for {c.data_type} '
                   f'for column {colname} in table {table_name}. Setting '
                   f'to "Any".')
             type_ = 'Any'
@@ -287,8 +280,8 @@ async def generate(conn: Connection, args):
         tables[table_name].columns[colname] = Column(
             name=colname,
             type=type_,
-            default=c['column_default'],
-            nullstr=' = None' if c['is_nullable'] == 'YES' else '',
+            default=c.column_default,
+            nullstr=' = None' if c.is_nullable == 'YES' else '',
             comment=comment,
             is_primary_key=pkeys[table_name] == colname,
             fkey=fkmap.get(f'{table_name}.{colname}')
@@ -415,35 +408,6 @@ async def main(args):
         await generate(conn, args)
     finally:
         await conn.close()
-
-
-async def get_primary_keys(conn: Connection, args) -> Dict[str, str]:
-    sql = f'''\
-    SELECT  *
-    FROM    {args.db}.INFORMATION_SCHEMA.TABLES t
-             LEFT JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
-                     ON tc.table_catalog = t.table_catalog
-                     AND tc.table_schema = t.table_schema
-                     AND tc.table_name = t.table_name
-                     AND tc.constraint_type = 'PRIMARY KEY'
-             LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
-                     ON kcu.table_catalog = tc.table_catalog
-                     AND kcu.table_schema = tc.table_schema
-                     AND kcu.table_name = tc.table_name
-                     AND kcu.constraint_name = tc.constraint_name
-    WHERE   t.table_schema NOT IN ('pg_catalog', 'information_schema')
-    ORDER BY t.table_catalog,
-             t.table_schema,
-             t.table_name,
-             kcu.constraint_name,
-             kcu.ordinal_position;
-    '''
-
-    records = await conn.fetch(sql)
-    out = {}
-    for r in records:
-        out[r['table_name']] = r['column_name']
-    return out
 
 
 def entrypoint():
